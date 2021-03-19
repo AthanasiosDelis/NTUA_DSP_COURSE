@@ -1,0 +1,401 @@
+/////////////////////////////////////////////////////////
+#############           MEROS 1            #############
+/////////////////////////////////////////////////////////
+
+
+import numpy as np
+import scipy as sp
+import librosa
+import matplotlib.pyplot as plt
+import pywt
+import sounddevice as sd
+from scipy import signal
+import scipy.io.wavfile
+import time
+
+/////////////////////////////////////////////////////////
+
+#1.1
+sr = 8192
+t = np.arange(1000)
+a = np.array([0.5346,0.5906,0.6535,0.7217]) #omega_row
+b = np.array([0.9273,1.0247,1.1328]) #omega_column
+for i in range(4):
+    for j in range(3):
+        time.sleep(0.5)
+        if i == 3:
+            z = np.sin(a[3]*t) + np.sin(b[1]*t)
+            sd.play(z,sr)
+            break;
+        else:
+            z = np.sin(a[i]*t) + np.sin(b[j]*t)
+            sd.play(z,sr)
+
+/////////////////////////////////////////////////////////
+
+#1.2
+#geia D4
+t = np.linspace(0,1000,1000)
+d4 = np.sin(0.5906*t) + np.sin(0.9273*t)
+
+%matplotlib inline
+dft4 = np.fft.fft(d4)
+f4 = np.linspace(0,500,1000)
+plt.plot(f4,np.abs(dft4))
+plt.xlabel('An array index that runs between 0 and N/2')
+plt.title('DFT of tone 4')
+
+#geia D6
+d6 = np.sin(0.5906*t) + np.sin(1.1328*t)
+%matplotlib inline
+dft6 = np.fft.fft(d6)
+f6 = np.linspace(0,500,1000)
+plt.plot(f6,np.abs(dft6))
+plt.xlabel('An array index that runs between 0 and N/2')
+plt.title('DFT of tone 6')
+
+/////////////////////////////////////////////////////////
+
+#1.3
+sr = 8192
+#t = np.arange(1000)
+t = np.linspace(0,1000,1000)
+d = []
+zeros = np.zeros(100)
+d0 = np.sin(0.7217*t) + np.sin(1.0247*t)
+d1 = np.sin(0.5346*t) + np.sin(0.9273*t)
+d2 = np.sin(0.5346*t) + np.sin(1.0247*t)
+d3 = np.sin(0.5346*t) + np.sin(1.1328*t)
+d4 = np.sin(0.5906*t) + np.sin(0.9273*t)
+d5 = np.sin(0.5906*t) + np.sin(1.0247*t)
+d6 = np.sin(0.5906*t) + np.sin(1.1328*t)
+d7 = np.sin(0.6535*t) + np.sin(0.9273*t)
+d8 = np.sin(0.6535*t) + np.sin(1.0247*t)
+d9 = np.sin(0.6535*t) + np.sin(1.1328*t)
+
+
+d = np.concatenate((d0,zeros,d6))
+d = np.concatenate((d,zeros,d2))
+d = np.concatenate((d,zeros,d3))
+d = np.concatenate((d,zeros,d4))
+d = np.concatenate((d,zeros,d3))
+d = np.concatenate((d,zeros,d0))
+d = np.concatenate((d,zeros,d6))
+
+librosa.output.write_wav('tone_sequence.wav', d, sr)
+
+/////////////////////////////////////////////////////////
+
+#1.4
+f = np.linspace(0,np.pi,1000)
+hw = np.hamming(1000)
+rw = signal.boxcar(1000)
+hamming = []
+rec = []
+NUM = (d.size / zeros.size)%10 + 1
+for j in range(int(NUM)):
+    df = np.fft.fft(d[j*1100:j*1100+1000])
+    mult_hw = hw*d[j*1100:j*1100+1000]
+    mult_rw = rw*d[j*1100:j*1100+1000]
+    
+    fft_hw = np.abs(np.fft.fft(mult_hw))
+    fft_rw = np.abs(np.fft.fft(mult_rw))
+    
+    
+    #hamming = np.vstack((hamming,fft_hw))
+    hamming += [fft_hw]
+    #rec = np.vstack((rec,fft_rw))
+    rec += [fft_rw]
+for j in range(int(NUM)):
+    plt.plot(f,hamming[j], color = 'blue')
+    plt.xlabel('ω')
+    plt.ylabel('Amplitude')
+    plt.title('DFT windowed by Hamming')
+    plt.show()
+    plt.show()
+for j in range(int(NUM)):
+    plt.plot(f,rec[j], color = 'red')
+    plt.xlabel('ω')
+    plt.ylabel('Amplitude')
+    plt.title('DFT windowed by rectangle')
+    plt.show()
+    plt.show()
+
+/////////////////////////////////////////////////////////
+
+#1.5
+t = np.linspace(0,1000,1000)
+o_r = np.zeros((4,1000))
+o_c = np.zeros((3,1000))
+o_r = o_r.astype(float)
+o_c = o_c.astype(float)
+
+numbers = []
+freq = []
+
+o_r[0,:] = np.sin(0.5346*t) ##omega_row_1,2,3
+o_r[1,:] = np.sin(0.5906*t) ##omega_row_4,5,6
+o_r[2,:] = np.sin(0.6535*t) ##omega_row_7,8,9
+o_r[3,:] = np.sin(0.7217*t) ##omega_row_0
+o_c[0,:] = np.sin(0.9273*t) ##omega_column_1,4,7
+o_c[1,:] = np.sin(1.0247*t) ##omega_column_2,5,8,0
+o_c[2,:] = np.sin(1.1328*t) ##omega_column_3,6,9
+
+def create_list_k(x,y):
+    numbers.append(tuple((x,y)))
+    print(x,y)
+def create_list_w(x,y):
+    freq.append(tuple((x,y)))
+    print(x,y)
+
+omc = np.fft.fft(o_c[1,:])
+omcabs = np.abs(omc)
+k_c = np.argmax(omcabs)
+omr = np.fft.fft(o_r[3,:])
+omrabs = np.abs(omr)
+k_r = np.argmax(omrabs)
+create_list(k_c+1,k_r+1)
+create_list_w(2*np.pi*(k_c+1)/1000,2*np.pi*(k_r+1)/1000)
+
+
+for i in range(3):
+    omr = np.fft.fft(o_r[i,:])
+    omrabs = np.abs(omr)
+    k_r = np.argmax(omrabs)
+    for j in range(3):
+        omc = np.fft.fft(o_c[j,:])
+        omcabs = np.abs(omc)
+        k_c = np.argmax(omcabs)
+        create_list(k_r+1,k_c+1)
+        create_list_w(2*np.pi*(k_r+1)/1000,2*np.pi*(k_c+1)/1000)
+
+/////////////////////////////////////////////////////////
+
+#1.6
+def compare(list):
+    for i in range(len(numbers)):
+        #print(list)
+        if list == numbers[i]:
+            print(i," ",end="")
+        else:
+            continue
+
+
+def ttdecode(data):
+    j = 0
+    i = 0
+    k = 0
+    count = 0
+    nonzeros = np.zeros(len(data))
+    while i in range(len(data)):
+        if data[i] != 0:
+            for k in range(1000):
+                if k + i == len(data):
+                    break
+                else:
+                    nonzeros[count] = data[i+k]
+                    count = count + 1
+            i = i + 1000
+        else:
+            i = i + 1
+
+nonzeros = np.resize(nonzeros,count)
+num = count/1000
+    num = round(num)
+    split_ar =  np.array_split(nonzeros, num)
+    numsdet = []
+    print("Vector =",end=" ")
+    for i in range(num):
+        rdft = np.fft.rfft(split_ar[i])
+        dftabs1 = np.abs(rdft)
+        maxk1 = np.argmax(dftabs1)
+        dftabs2 = np.delete(dftabs1,maxk1)
+        maxk2 = np.argmax(dftabs2)
+        if maxk2 > maxk1:
+            #numsdet.append((maxn1 + 1, maxn2 + 2))
+            numsdet = (maxk1 + 1,maxk2 + 2)
+        else:
+            #numsdet.append((maxn1 + 1, maxn2 + 1))
+            numsdet = (maxk1 + 1,maxk2 + 1)
+        
+        compare(numsdet)
+        if i == num - 1:
+            print(" ")
+
+rate, x = scipy.io.wavfile.read('/Users/Nikolaszot/Documents/Σχολή/6o/ΨΕΣ/ΣΕΙΡΑ_1/μερος_1/tonetest.wav')
+ttdecode(x)
+
+/////////////////////////////////////////////////////////
+
+#1.7
+easy = np.load('/Users/Nikolaszot/Documents/Σχολή/6o/ΨΕΣ/ΣΕΙΡΑ_1/dsp20_lab1_Data/easySig.npy')
+hard = np.load('/Users/Nikolaszot/Documents/Σχολή/6o/ΨΕΣ/ΣΕΙΡΑ_1/dsp20_lab1_Data/hardSig.npy')
+
+ttdecode(easy)
+ttdecode(hard)
+
+
+/////////////////////////////////////////////////////////
+#############           MEROS 2            #############
+/////////////////////////////////////////////////////////
+
+import numpy as np
+import scipy as sp
+import librosa
+import matplotlib.pyplot as plt
+import pywt
+import sounddevice as sd
+from scipy import signal
+
+/////////////////////////////////////////////////////////
+
+#2.1.a
+t = np.linspace(0,2,2000)
+x1 = 2*np.cos(2*np.pi*70*t) + 3*np.sin(2*np.pi*140*t) + 0.15*np.random.normal(0,1,2000)
+plt.plot(t,x1)
+plt.xlabel('Time (sec)')
+plt.title('Signal x1')
+
+/////////////////////////////////////////////////////////
+
+#2.1.b
+f1,t1,x1s = signal.stft(x1,fs = 1000.0,nperseg=40,noverlap = 20)
+plt.pcolormesh(t1,f1,np.abs(x1s))
+plt.xlabel('Time (sec)')
+plt.ylabel('Frequency(Hz)')
+plt.title('STFT of x1')
+
+/////////////////////////////////////////////////////////
+
+#2.1.g
+s = np.power(2,np.linspace(1,6,100))
+coefs,freqs = pywt.cwt(x1,s,'cmor3.0-1.0')
+#%matplotlib inline
+f = freqs*1000
+plt.pcolormesh(t,f,np.abs(coefs))
+plt.xlabel('Time (sec)')
+plt.ylabel('Frequency(Hz)')
+plt.title('CWT of x1')
+
+/////////////////////////////////////////////////////////
+
+#2.1.d
+
+/////////////////////////////////////////////////////////
+
+#2.2.a
+t2 = np.linspace(0,2,2000)
+x2 = 1.7*np.cos(2*np.pi*90*t2) + 0.15*np.random.normal(0,1,2000) + 1.7*signal.unit_impulse(2000,625) + 1.7*signal.unit_impulse(2000,800)
+
+plt.plot(t2,x2)
+plt.xlabel('Time (sec)')
+plt.title('Signal x2')
+
+/////////////////////////////////////////////////////////
+
+#2.2.b
+f2,t2,x2s = signal.stft(x2,fs = 1000.0,nperseg=40,noverlap = 20)
+plt.contour(t2,f2,np.abs(x2s),15)
+plt.title('|CWT(τ, f)|')
+
+/////////////////////////////////////////////////////////
+
+#2.2.g
+t = np.linspace(0,2,2000)
+x2 = 1.7*np.cos(2*np.pi*90*t) + 0.15*np.random.normal(0,1,2000) + 1.7*signal.unit_impulse(2000,625) + 1.7*signal.unit_impulse(2000,800)
+s = np.power(2,np.linspace(1,6,100))
+coefs,freqs = pywt.cwt(x2,s,'cmor3.0-1.0')
+%matplotlib inline
+f = freqs*1000
+#frequencies = pywt.scale2frequency('cmor3.0-1.0',s)
+#print(frequencies)
+#print(frequencies.shape)
+plt.contour(t,f,np.abs(coefs),15)
+plt.xlabel('Time (sec)')
+plt.ylabel('Frequency(Hz)')
+plt.title('CWT of the signal segment')
+
+/////////////////////////////////////////////////////////
+
+#2.2.d
+
+/////////////////////////////////////////////////////////
+#############           MEROS 3            #############
+/////////////////////////////////////////////////////////
+
+import numpy as np
+import scipy as sp
+import librosa
+import matplotlib.pyplot as plt
+import pywt
+import sounddevice as sd
+from scipy import signal
+from scipy.io import wavfile
+
+/////////////////////////////////////////////////////////
+
+sr = 16000
+N = 400
+x,fs = librosa.load(" ......... ",sr)
+h = np.hamming(N)
+print(fs,x.shape)
+sampsPerMilli = int(fs / 1000)
+millisPerFrame = 25
+sampsPerFrame = sampsPerMilli * millisPerFrame
+nFrames = int(len(x) / sampsPerFrame)
+print(nFrames)
+STEs = []                                      # list of short-time energies
+for k in range(nFrames):
+    startIdx = k * sampsPerFrame
+    stopIdx = startIdx + sampsPerFrame
+    window = np.zeros(x.shape)
+    window[startIdx:stopIdx] = h
+    STE = sum(np.abs((x ** 2)) * (window**2))
+    STEs.append(STE)
+
+startIdx = 0
+stopIdx = 0
+ZCCs = []                                      # list of short-time zero crossing counts
+for i in range(nFrames):
+    startIdx = i * sampsPerFrame
+    stopIdx = startIdx + sampsPerFrame
+    ZCC = 0
+    for k in range(startIdx,stopIdx):
+        
+        ZCC += 1/N*np.abs(np.sign(x[k]) - np.sign(x[k - 1]))
+    ZCCs.append(ZCC)
+
+#plt.plot(conv)
+time = np.linspace(0,len(x)/sr,nFrames)
+time2 = np.linspace(0,len(x)/sr,len(x))
+
+#grafiki tou short-time energy
+plt.plot(time,STEs) # plotting short-time energy
+plt.xlabel('Time')
+plt.title('Short Time Energy')
+
+#grafiki tou short-time crossings count
+plt.plot(time,ZCCs)
+plt.xlabel('Time')
+plt.title('Short Time Crossings')
+
+recgns = []
+unvoiced = []
+voiced = []
+for i in range(nFrames):
+    recgn = STEs[i] - ZCCs[i]
+    recgns.append(recgn)
+    if(np.abs(recgn) > 0.05 and ZCCs[i] > 0.3):
+        unvoiced.append(i)
+    if(np.abs(recgn) > 0.05 and ZCCs[i] < 0.15 and STEs[i] > 0.2):
+        voiced.append(i)
+
+print(voiced)
+print(unvoiced)
+
+#kaloume tin play se mia apo tis thesis pou vriskoume oti exei fwnien gia epalithefsi
+sd.play(x[125*200:127*200],fs) #kai akoume ton hxo tou grammatos H
+
+#kaloume tin play se mia apo tis thesis pou vriskoume oti exei simfono gia epalithefsi
+sd.play(x[91*400:94*400],fs) #kai akoume ton hxo tou grammatos Σ
+
